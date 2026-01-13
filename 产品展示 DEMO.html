@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steam Controller - 沉浸式展示 (模态框功能版)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;800&display=swap" rel="stylesheet">
+  <style>
+    /* --- 1. 基础样式 (保留你的原有代码) --- */
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at center, #212121 0%, #0a0a0a 100%);
+      color: #ffffff;
+      touch-action: none;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 50%;
+      left: 60%;
+      width: 500px;
+      height: 500px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(0, 188, 212, 0.15) 0%, transparent 70%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #info-panel {
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      transform: translateY(-50%);
+      max-width: 400px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 3.5rem;
+      margin: 0;
+      line-height: 1.1;
+      background: linear-gradient(45deg, #ffffff, #8e9eab);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 300;
+      color: #ccc;
+      margin-bottom: 20px;
+    }
+
+    p.desc {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    .price {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    .action-button {
+      padding: 12px 30px;
+      background: #00bcd4;
+      color: #fff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      box-shadow: 0 4px 10px rgba(0, 188, 212, 0.4);
+      transition: all 0.2s ease-in-out;
+      margin-right: 15px;
+    }
+
+    .action-button:hover {
+      background: #00acc1;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 188, 212, 0.6);
+    }
+
+    .action-button.secondary {
+      background: transparent;
+      border: 1px solid #00bcd4;
+      box-shadow: none;
+    }
+
+    .action-button.secondary:hover {
+      background: rgba(0, 188, 212, 0.1);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px 25px;
+      border-radius: 30px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: auto;
+    }
+
+    .color-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .color-btn:hover,
+    .color-btn.active {
+      transform: scale(1.3);
+      border-color: #00bcd4;
+    }
+
+    .hotspot {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background: #00bcd4;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      transform: translate(-50%, -50%);
+      opacity: 0.9;
+      box-shadow: 0 0 10px #00bcd4;
+      pointer-events: auto;
+    }
+
+    .hotspot:hover {
+      transform: translate(-50%, -50%) scale(1.5);
+      opacity: 1;
+    }
+
+    .info-card {
+      position: absolute;
+      min-width: 250px;
+      background: rgba(40, 40, 60, 0.9);
+      border-radius: 8px;
+      padding: 15px;
+      color: #fff;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      border-left: 3px solid #00bcd4;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(0, 10px);
+    }
+
+    .info-card.visible {
+      opacity: 1;
+      transform: translate(0, 0);
+      pointer-events: auto;
+    }
+
+    .info-card h4 {
+      color: #00bcd4;
+      margin-top: 0;
+      margin-bottom: 5px;
+      font-size: 1.1rem;
+    }
+
+    .info-card p {
+      font-size: 0.9rem;
+      line-height: 1.4;
+      color: #e0e0e0;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    #loading-screen {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      transition: opacity 0.5s;
+    }
+
+    .loader {
+      border: 4px solid #333;
+      border-top: 4px solid #00bcd4;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    #transition-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      pointer-events: none;
+      background: #0a0a0a;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    #transition-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+      background: repeating-linear-gradient(45deg,
+          rgba(0, 188, 212, 0.05),
+          rgba(0, 188, 212, 0.05) 1px,
+          transparent 1px,
+          transparent 10px),
+        repeating-linear-gradient(-45deg,
+          rgba(0, 188, 212, 0.05),
+          rgba(0, 188, 212, 0.05) 1px,
+          transparent 1px,
+          transparent 10px),
+        radial-gradient(circle at center, rgba(0, 188, 212, 0.2) 0%, #0a0a0a 70%);
+
+      animation: gridPulse 4s infinite alternate;
+    }
+
+    @keyframes gridPulse {
+      0% {
+        background-size: 100% 100%;
+        opacity: 0.8;
+      }
+
+      100% {
+        background-size: 150% 150%;
+        opacity: 1;
+      }
+    }
+
+    /* --- 新增：模态框样式 --- */
+    #modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 50;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #modal-backdrop.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    #modal-content {
+      background: #1a1a1a;
+      border: 1px solid #00bcd4;
+      border-radius: 10px;
+      padding: 30px;
+      max-width: 80vw;
+      width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      transform: translateY(-20px);
+      transition: transform 0.3s ease;
+      box-shadow: 0 10px 30px rgba(0, 188, 212, 0.3);
+    }
+
+    #modal-backdrop.show #modal-content {
+      transform: translateY(0);
+    }
+
+    #modal-content h3 {
+      color: #00bcd4;
+      margin-top: 0;
+      border-bottom: 2px solid #333;
+      padding-bottom: 10px;
+    }
+
+    #modal-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #ccc;
+    }
+  </style>
+
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+
+  <div id="transition-overlay"></div>
+
+  <div id="modal-backdrop">
+    <div id="modal-content">
+      <span id="modal-close-btn" onclick="window.closeModal()">&times;</span>
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <p style="color: #00bcd4;">加载 3D 模型...</p>
+  </div>
+
+  <div id="info-panel">
+    <h2>NEXT GEN GAMING</h2>
+    <h1>STEAM<br>CONTROLLER</h1>
+    <p class="desc">体验前所未有的精准控制。双触控板、二段式扳机、高清触感反馈。为 PC 游戏而生。</p>
+    <span class="price">$49.99</span>
+    <div style="pointer-events: auto;">
+      <button class="action-button" onclick="window.handleBuyNow()">立即购买</button>
+      <button class="action-button secondary" onclick="window.handleRoute('Specs')">技术规格</button>
+      <button class="action-button secondary" onclick="window.handleRoute('Reviews')">用户评价</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="color-btn active" data-color="#1a1a1a" style="background: #1a1a1a;"
+      onclick="window.changeColorAndActivate('#1a1a1a', this)"></div>
+    <div class="color-btn" data-color="#e0e0e0" style="background: #e0e0e0;"
+      onclick="window.changeColorAndActivate('#e0e0e0', this)"></div>
+    <div class="color-btn" data-color="#197e8b" style="background: #197e8b;"
+      onclick="window.changeColorAndActivate('#197e8b', this)"></div>
+    <div class="color-btn" data-color="#ffd773" style="background: #ffd773;"
+      onclick="window.changeColorAndActivate('#ffd773', this)"></div>
+  </div>
+
+  <div id="hotspot-container">
+    <div class="hotspot" data-info="touchpad" style="display: none;"></div>
+    <div class="info-card" data-info="touchpad">
+      <span class="close-btn"
+        onclick="document.querySelector('.info-card.visible').classList.remove('visible')">×</span>
+      <h4>双高精度触控板</h4>
+      <p>替代传统摇杆，提供 1:1 虚拟轨迹球体验，实现毫秒级的瞄准精度和快速滑动。</p>
+    </div>
+
+    <div class="hotspot" data-info="trigger" style="display: none;"></div>
+    <div class="info-card" data-info="trigger">
+      <span class="close-btn"
+        onclick="document.querySelector('.info-card.visible').classList.remove('visible')">×</span>
+      <h4>二段式数字扳机</h4>
+      <p>模拟鼠标点击的二段式扳机，实现射击游戏的半程瞄准和全程射击功能，手感清脆。</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    let scene, camera, renderer, controls;
+    let productMesh;
+
+    const hotspots = [
+      { name: 'touchpad', position: new THREE.Vector3(2.0 + 0.5, -1.5 + 0.05, 0) },
+      { name: 'trigger', position: new THREE.Vector3(2.0 - 0.5, -1.5 - 0.25, 0.8) }
+    ];
+
+    const transitionOverlay = document.getElementById('transition-overlay');
+    // 获取模态框 DOM 元素
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+
+    /**
+     * 显示模态框并填充内容
+     * @param {string} title 标题
+     * @param {string} bodyContent HTML 内容
+     */
+    window.showModal = function (title, bodyContent) {
+      modalTitle.innerHTML = title;
+      modalBody.innerHTML = bodyContent;
+      modalBackdrop.classList.add('show');
+      // 阻止背景滚动
+      document.body.style.overflow = 'hidden';
+      // 禁用 3D 控件交互
+      if (controls) controls.enabled = false;
+    }
+
+    /**
+     * 关闭模态框
+     */
+    window.closeModal = function () {
+      modalBackdrop.classList.remove('show');
+      document.body.style.overflow = 'auto'; // 恢复背景滚动
+      // 延迟恢复 3D 控件，防止误操作
+      setTimeout(() => {
+        if (controls) controls.enabled = true;
+      }, 300);
+    }
+
+    // ==========================================================
+    // === 交互功能函数（修改为使用模态框）===
+    // ==========================================================
+
+    window.handleRoute = function (destination) {
+      if (transitionOverlay.classList.contains('active')) return;
+      transitionOverlay.classList.add('active');
+
+      let title = '';
+      let content = '';
+
+      switch (destination) {
+        case 'Specs':
+          title = '⚙️ 技术规格与参数';
+          content = `
+                        <p><strong>传感器:</strong> 高精度磁阻传感器</p>
+                        <p><strong>触控板:</strong> 两个高精度、带触觉反馈的触控板</p>
+                        <p><strong>扳机:</strong> 双段式模拟+数字扳机</p>
+                        <p><strong>连接:</strong> 2.4GHz 无线接收器/蓝牙</p>
+                        <p><strong>尺寸:</strong> 159mm x 112mm x 69mm</p>
+                        <p style="color:#00bcd4;">查看详细规格请访问官方网站。</p>
+                    `;
+          break;
+        case 'Reviews':
+          title = '⭐️ 用户评价与社区反馈';
+          content = `
+                        <p><strong>用户评分:</strong> 4.5 / 5.0 (基于 12,000 条评价)</p>
+                        <p><strong>精选评价:</strong> “适应期很短，但在 RTS 和 FPS 游戏中提供了前所未有的精准度。”</p>
+                        <p><strong>媒体评论:</strong> “Steam Controller 重新定义了 PC 游戏手柄的交互方式。”</p>
+                        <p style="color:#00bcd4;">分享你的体验，成为社区的一员。</p>
+                    `;
+          break;
+      }
+
+      setTimeout(() => {
+        transitionOverlay.classList.remove('active');
+        window.showModal(title, content);
+      }, 1500);
+    };
+
+    window.handleBuyNow = function () {
+      if (transitionOverlay.classList.contains('active')) return;
+      transitionOverlay.classList.add('active');
+
+      setTimeout(() => {
+        transitionOverlay.classList.remove('active');
+        window.showModal(
+          '🛒 确认加入购物车',
+          '<p style="font-size:1.1rem; color:#f0f0f0;"><strong>Steam Controller ($49.99)</strong> 已成功添加到您的购物车。</p><p>您可以继续浏览，或立即前往结账页面完成购买。</p><button class="action-button" style="margin-top:15px; margin-right: 0;" onclick="window.closeModal()">继续浏览</button>'
+        );
+      }, 1200);
+    };
+
+    // ==========================================================
+    // === 核心 Three.js 初始化 (保持不变) ===
+    // ==========================================================
+
+    window.changeColorAndActivate = function (colorHex, targetButton) {
+      if (productMesh) {
+        const newColor = new THREE.Color(colorHex);
+        productMesh.traverse((child) => {
+          if (child.isMesh) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(material => {
+              if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
+                material.color.copy(newColor);
+                material.needsUpdate = true;
+              }
+            });
+          }
+        });
+      }
+      document.querySelectorAll('#controls .color-btn').forEach(btn => btn.classList.remove('active'));
+      if (targetButton) targetButton.classList.add('active');
+    };
+
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(2.0, -1.2, 2.2);
+      camera.lookAt(2.0, -1.5, 0);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = false;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 2;
+      controls.maxDistance = 10;
+      controls.target.set(2.0, -1.5, 0);
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.5;
+
+      // --- 灯光设置 (用户原有配置) ---
+      const ambientLight = new THREE.AmbientLight(0x88bbff, 0.3);
+      scene.add(ambientLight);
+      const spotLight = new THREE.SpotLight(0x88bbff, 15);
+      spotLight.position.set(0, -5, 0);
+      spotLight.angle = Math.PI / 4;
+      spotLight.penumbra = 0.5;
+      scene.add(spotLight);
+      const sideLight1 = new THREE.DirectionalLight(0x88bbff, 0.8);
+      sideLight1.position.set(-8, -3, 3);
+      scene.add(sideLight1);
+      const sideLight2 = new THREE.DirectionalLight(0x88bbff, 1.0);
+      sideLight2.position.set(8, -3, -3);
+      scene.add(sideLight2);
+      const bottomLight = new THREE.PointLight(0x88bbff, 2.0);
+      bottomLight.position.set(0, -3, 0);
+      bottomLight.distance = 15;
+      bottomLight.decay = 1.5;
+      scene.add(bottomLight);
+      const topLight = new THREE.DirectionalLight(0xffffff, 2.0);
+      topLight.position.set(0, 10, 0);
+      scene.add(topLight);
+      const frontColorLight = new THREE.DirectionalLight(0xf8f9fa, 0.8);
+      frontColorLight.position.set(0, 1.2, 5);
+      scene.add(frontColorLight);
+      const backRimLight = new THREE.DirectionalLight(0xe9ecef, 1.2);
+      backRimLight.position.set(0, 3, -5);
+      scene.add(backRimLight);
+
+      // --- 加载模型 ---
+      const loader = new GLTFLoader();
+      loader.load('./models/source/Steam Controller10.glb', function (gltf) {
+        productMesh = gltf.scene;
+        productMesh.position.set(2.0, -1.5, 0);
+
+        productMesh.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material.isMeshStandardMaterial || child.material.isMeshPhysicalMaterial) {
+              child.material.roughness = child.material.roughness || 0.4;
+              child.material.metalness = child.material.metalness || 0.2;
+            }
+          }
+        });
+
+        scene.add(productMesh);
+
+        controls.addEventListener('start', () => { controls.autoRotate = false; });
+        controls.addEventListener('end', () => {
+          clearTimeout(window.rotateTimeout);
+          window.rotateTimeout = setTimeout(() => { controls.autoRotate = true; }, 5000);
+        });
+
+        setupHotspots();
+
+        const loadingScreen = document.getElementById('loading-screen');
+        loadingScreen.style.opacity = 0;
+        setTimeout(() => loadingScreen.remove(), 500);
+
+      }, (xhr) => {
+        const progress = Math.round(xhr.loaded / xhr.total * 100);
+        document.querySelector('#loading-screen p').textContent = `加载 3D 模型... ${progress}%`;
+      }, function (error) {
+        console.error("模型加载失败，请检查路径和本地服务器配置！", error);
+        document.querySelector('#loading-screen p').textContent = "加载失败！请使用 Live Server 运行。";
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (controls) controls.update();
+      updateHotspots();
+      renderer.render(scene, camera);
+    }
+
+    // --- 细节热点功能 ---
+
+    function setupHotspots() {
+      document.querySelectorAll('.hotspot').forEach(hotspotEl => {
+        hotspotEl.addEventListener('click', () => {
+          const infoName = hotspotEl.getAttribute('data-info');
+          const infoCard = document.querySelector(`.info-card[data-info="${infoName}"]`);
+
+          document.querySelectorAll('.info-card').forEach(card => card.classList.remove('visible'));
+
+          if (infoCard) {
+            infoCard.classList.add('visible');
+          }
+        });
+      });
+
+      document.querySelectorAll('.info-card .close-btn').forEach(closeBtn => {
+        closeBtn.addEventListener('click', () => {
+          closeBtn.closest('.info-card').classList.remove('visible');
+        });
+      });
+    }
+
+    function updateHotspots() {
+      hotspots.forEach(hotspot => {
+        const vector = hotspot.position.clone();
+        const hotspotEl = document.querySelector(`.hotspot[data-info="${hotspot.name}"]`);
+
+        if (!hotspotEl) return;
+
+        vector.project(camera);
+
+        if (vector.z < 1) {
+          const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+
+          hotspotEl.style.left = `${x}px`;
+          hotspotEl.style.top = `${y}px`;
+          hotspotEl.style.display = 'block';
+
+          const infoCard = document.querySelector(`.info-card[data-info="${hotspot.name}"]`);
+          if (infoCard && infoCard.classList.contains('visible')) {
+            const cardWidth = infoCard.offsetWidth;
+            const cardHeight = infoCard.offsetHeight;
+
+            let cardX = x + 20;
+            let cardY = y - cardHeight - 20;
+
+            if (cardX + cardWidth > window.innerWidth - 20) {
+              cardX = x - cardWidth - 20;
+            }
+            if (cardY < 20) {
+              cardY = y + 20;
+            }
+
+            infoCard.style.left = `${cardX}px`;
+            infoCard.style.top = `${cardY}px`;
+          }
+        } else {
+          hotspotEl.style.display = 'none';
+          const infoCard = document.querySelector(`.info-card[data-info="${hotspot.name}"]`);
+          if (infoCard) infoCard.classList.remove('visible');
+        }
+      });
+    }
+
+
+    init();
+    animate();
+  </script>
+</body>
+
+</html>
